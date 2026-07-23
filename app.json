@@ -1,0 +1,47 @@
+{
+  "id": "bfbe6edd-db13-4568-b008-ce5f608076c3",
+  "name": "Kosmos Tek International Commerce",
+  "publisher": "Kosmos Tek Software ©",
+  "version": "1.0.5.27",
+  "brief": "2020-2021",
+  "description": "Depende de la extension de Factura Electronica NA",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  
+  "logo": "",
+  "dependencies": [
+    {
+      "id": "32589ceb-2906-4eab-a294-45c25131b573",
+      "publisher": "Kosmos Tek Software ©",
+      "name": "Kosmos Tek Electronic Invoicing Core NA",
+      "version": "1.0.5.27"
+    },
+    {
+      "id": "525bd91d-73cf-4d41-815a-8acd435d9f9b",
+      "publisher": "Kosmos Tek Software ©",
+      "name": "Kosmos Tek Base Library Core",
+      "version": "1.0.5.27"
+    },
+    {
+      "id": "a8e46b81-54a0-49a4-895b-558d7f114eb8",
+      "publisher": "Kosmos Tek Software ©",
+      "name": "Kosmos Tek CFDI Reports Core NA",
+      "version": "1.0.5.27"
+    }
+  ],
+  "screenshots": [],
+  "platform": "17.0.0.0",
+  "application": "18.2.0.0",
+  "idRanges": [
+    {
+      "from": 50100,
+      "to": 51300
+    }
+  ],
+  "contextSensitiveHelpUrl": "https://ALKTCCE.com/help/",
+  "showMyCode":true,
+  "runtime": "7.0",
+  "target": "OnPrem"
+}
