@@ -59,3 +59,85 @@ Cuando un documento tiene **Comercio Exterior + Leyendas Fiscales** activos al m
 - Esto depende de que el subscriber de **este módulo se ejecute antes** que el de Leyendas Fiscales — no es una garantía formal de la plataforma BC, pero está reforzada por una dependencia explícita en `7 Virtual Export\app.json` sobre este módulo.
 
 **Pendiente opcional (no aplicado):** agregar un comentario de advertencia en `51005-CODE50140.al` documentando esta dependencia de orden de ejecución con el módulo `7 Virtual Export`, para que no se rompa sin darse cuenta si se reestructuran las extensiones en el futuro.
+
+---
+
+## Checklist de datos maestros — condición para que el nodo `ComercioExterior` se genere completo (2026-07-23)
+
+El código del codeunit 51005 está listo (ver arriba). Lo que falta para producción es **confirmar datos/configuración**, no código:
+
+| Requisito | Dónde se usa en 51005-CODE50140.al | Riesgo si falta |
+|---|---|---|
+| Tipo de cambio USD vigente (`Starting Date` ≤ fecha de contabilización) | líneas ~328-333 (`LrecExchangeRate.FINDLAST`) | **Riesgo más serio**: si no existe, `TipoCambioUSD`/`TotalUSD` no se escriben en absoluto, sin error — SAT los exige cuando `TipoOperacion='1'` |
+| `Country/Region Code` en el Customer | línea ~444 (`LRecCountryCode.GET` sin chequeo) | Error en tiempo de ejecución **después** de contabilizar (el `OnAfterCreateReceipt` corre post-posteo) |
+| `Tariff No.` (10 dígitos) en Item/G/L Account | validado en `OnBeforePostSalesDoc` (líneas ~695-703) | Bloquea el posteo con error claro (protegido) |
+| `Customs UOM Code` en Unit of Measure | validado en `OnBeforePostSalesDoc` (línea ~729) | Bloquea el posteo con error claro (protegido) |
+| `Shipment Method Code` (Incoterm, máx. 3 caracteres) | línea ~684-686 | Bloquea el posteo con error claro (protegido) |
+| Setup **"Digital Electronic Acc. SetupE"** debe existir | línea ~658 (`GRecDigitalElectronic.Get()`) | Si no existe, **ninguna** de las validaciones de `OnBeforePostSalesDoc` corre — un documento con Tariff No./UOM faltante se postearía sin avisar |
+| `CCE Estado/Localidad/Municipio` en Post Code (empresa y ship-to del cliente) | líneas ~390-395, ~413-436 | No truena, pero deja atributos vacíos — inválido ante XSD/PAC |
+| `VAT Registration No.`, `No. Exterior/Interior` en Customer | nodo Receptor | Quedan vacíos si no están cargados (no error) |
+
+**Acción en curso (2026-07-23):** se envió correo a **Brahim Barki** pidiendo que valide en sandbox contabilizando una factura con Comercio Internacional + Leyendas Fiscales activos simultáneamente, y que revise el XML resultante contra el checklist de arriba. **Pendiente su respuesta.**
+
+---
+
+## Leyendas Fiscales (módulo `7 Virtual Export`) — auditoría de código (2026-07-23)
+
+Pieza propia: codeunit 51006 "VirtualExport Events Mgt" ([7-Virtual-Export/.vscode/AL/Codeunit/51006-CODE50140.al](../7-Virtual-Export/.vscode/AL/Codeunit/51006-CODE50140.al)). **Veredicto: funcionalmente completo, sin ramas a medio implementar.** No tiene `context.md` propio (no existe en el repo).
+
+**Cómo funciona:** reutiliza la tabla genérica `Comment Line`, filtrando por `Table Name = Customer` + `Ident = "Elektronische Rechnung"` (definido en `7-Virtual-Export/.vscode/AL/ExtensionTable/51048-CommentLineExt.al`, un `Option` reciclado de otra industria — solo se usa ese último valor). Si hay al menos un comentario con ese filtro, se agrega el nodo `leyendasFisc:LeyendasFiscales` con:
+- `disposicionFiscal='LA,RGCE'` — hardcodeado.
+- `norma` — texto legal hardcodeado (Art. 105 y 112 Ley Aduanera + reglas 4.3.21, 5.2.4-II, 5.2.7 RGCE).
+- `textoLeyenda` — concatenación de **todos** los comentarios que matcheen el filtro.
+
+**Deuda técnica identificada (no bloqueante):**
+- Filtro adicional por `Type::"Fiscal Remark"` fue comentado en 2021 y no revertido — riesgo latente si `Ident="Elektronische Rechnung"` se reutiliza para otra cosa (sin evidencia de que pase hoy).
+- `disposicionFiscal`/`norma` fijos por código, no configurables.
+- Solo soporta **una** leyenda por cliente (todo se concatena en un solo texto).
+- Sin validación de longitud del texto `norma` contra el XSD real (mismo pendiente que CCE).
+- Leyendas Fiscales **sí aplican a Notas de Crédito** (a diferencia de CCE, que las excluye explícitamente) — parece intencional (la leyenda es del cliente, no de la operación de exportación).
+- Interacción con módulo CCE (nodo `Complemento` compartido) confirmada correcta — ver sección de arriba.
+
+---
+
+## Pedimento — confirmado que el sistema NO lo maneja, y es correcto que no lo haga (2026-07-23)
+
+Búsqueda exhaustiva en todo el repo (`grep -i Pedimento` en módulos 2-8):
+
+- El sistema **solo maneja `ClaveDePedimento` catalogada** (`'A1'` hardcodeado), consistente entre módulo 6 (`51005-CODE50140.al:307`) y módulo `8-Transfer-CFDI` (`51007-CFDI Transfer.al:858`). No existe tabla ni catálogo de pedimentos individuales en ningún módulo.
+- Existe código legado para `NumeroPedimento`/nodo `InformacionAduanera` en el motor central (`4-ALCoreBaseEInvoicing/.vscode/AL/Codeunit/51002-EInvoiceMgtKT.al`, líneas ~3234-3258), pero:
+  - Comentado desde 2020 (`"KTS FE Commented Out Not Pediment 2020"`).
+  - Aplica bajo `IF NOT IsInternationalCommerce` — es decir, es para mercancía **importada** en CFDI normal, no para el CCE de exportación.
+  - **No compilaría si se reactivara**: usa una variable `PedimentReservation` no declarada, y depende de un campo `"Pediment No."` en `Reservation Entry` que no existe como table extension en ningún módulo.
+- No hay módulo de aduanas/importación en el repo — módulos 6 y 7 son exclusivamente de exportación.
+
+**Conclusión:** dado que la empresa solo opera exportación definitiva (decisión de negocio ya confirmada arriba), la ausencia de manejo de pedimento real **no es un gap que les afecte hoy**. Solo sería relevante si en el futuro empiezan a facturar mercancía importada — escenario distinto y no contemplado actualmente.
+
+---
+
+## Para continuar mañana
+
+1. **Esperar respuesta de Brahim Barki** sobre la prueba en sandbox (factura con Comercio Exterior + Leyendas Fiscales) — ver checklist de datos maestros arriba.
+2. Si el XML sale incompleto, lo primero a revisar es el **tipo de cambio USD** (el gap silencioso más probable) y el registro **"Digital Electronic Acc. SetupE"**.
+3. Validar contra XSD/PAC de pruebas antes de producción (pendiente original, sigue vigente).
+
+---
+
+## Prueba en sandbox (2026-07-27) — resultados y corrección adicional
+
+Brahim probó en sandbox (documento FVR26-1006). Hallazgos, en orden:
+
+1. **Error inicial "Unable to connect to the remote server"** al hacer Request Stamp — era el PAC de pruebas (Finkok) sin activar en sandbox. Confirmado como configuración, no código. Resuelto por el cliente.
+2. **`Sello`, `Certificado`, `NoCertificado` vacíos/ausentes en el XML de salida (`salida.xml`)** — investigado a fondo, **es correcto y por diseño**: el código (`4-ALCoreBaseEInvoicing/.vscode/AL/Codeunit/51002-EInvoiceMgtKT.al`, líneas ~6322-6330) usa explícitamente el método SOAP **`sign_stamp`** de Finkok (no `stamp`), que recibe el CFDI **sin firmar** y Finkok lo firma (con el CSD que tiene almacenado) y timbra en una sola llamada. El XML completo con estos atributos llenos queda en `GRecDigitalElectrAccSetup."Path for E-Invoice" + '\temp\responseStamp.xml'` (línea 6375) — **ese** es el archivo a validar, no `salida.xml`. Sin cambios de código, solo aclaración.
+3. **Error real del PAC al timbrar — CodigoError 301 "XML mal formado":**
+   > `Element '{http://www.sat.gob.mx/ComercioExterior20}ComercioExterior', attribute 'TipoOperacion': The attribute 'TipoOperacion' is not allowed.`
+
+   Confirmado por Brahim contra Anexo 20/22 vigente: el SAT **ya no permite** los atributos `TipoOperacion` ni `Subdivision` en `cce20:ComercioExterior` (versión de complemento vigente). Esto reemplaza lo que se creía "el fix" del 2026-07-15 — no bastaba con corregir el *valor* de `TipoOperacion` a `'1'`, el atributo **ya no debe existir en absoluto**.
+
+### Corrección aplicada (2026-07-27) — [AL/Codeunit/51005-CODE50140.al](.vscode/AL/Codeunit/51005-CODE50140.al)
+
+- Línea ~304: se removió `AddAttribute(XMLDoc, XMLCurrNode, 'TipoOperacion', lTipoOperacion)`. La variable `lTipoOperacion` **se conserva** — sigue determinando internamente si se agregan `ClaveDePedimento`/`CertificadoOrigen`/`Incoterm`/`TipoCambioUSD`/`TotalUSD` (bloque `IF (lTipoOperacion = '1') OR (lTipoOperacion = '2') THEN`).
+- Línea ~323: se removió `AddAttribute(XMLDoc, XMLCurrNode, 'Subdivision', '0')`.
+- Ambos quedaron como comentarios explicativos en el código, no eliminados silenciosamente.
+
+**Pendiente de validar:** repetir el Request Stamp en sandbox con este cambio y confirmar que el error 301 ya no aparece, y que el resto del nodo `ComercioExterior` (`ClaveDePedimento`, `CertificadoOrigen`, `Incoterm`, `TipoCambioUSD`, `TotalUSD`, `Emisor`, `Receptor`, `Mercancias`) se timbra correctamente sin ellos.

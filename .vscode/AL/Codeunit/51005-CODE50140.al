@@ -301,8 +301,8 @@ codeunit 51005 "International Comm Events Mgt"
             ELSE BEGIN
                 lTipoOperacion := '1'; // Exportación definitiva - único tipo de operación que maneja la empresa
             END;
-            LElectronicInvoicing.AddAttribute(XMLDoc, XMLCurrNode, 'TipoOperacion', lTipoOperacion);
-            // 1: Exportación definitiva - [ ClaveDePedimento, CertificadoOrigen, Incoterm, Subdivision, TipoCambioUSD, TotalUSD]
+            // TipoOperacion removido del XML: SAT ya no permite este atributo en cce20:ComercioExterior (error PAC 301 "XML mal formado" confirmado 2026-07-27). lTipoOperacion se conserva solo para la lógica interna de abajo.
+            // 1: Exportación definitiva - [ ClaveDePedimento, CertificadoOrigen, Incoterm, TipoCambioUSD, TotalUSD]
             IF (lTipoOperacion = '1') OR (lTipoOperacion = '2') THEN BEGIN
                 LElectronicInvoicing.AddAttribute(XMLDoc, XMLCurrNode, 'ClaveDePedimento', 'A1'); // 1 o 2
                 IF LrecSalInv2."UUID de Certificado de Origen" <> '' THEN BEGIN
@@ -320,7 +320,7 @@ codeunit 51005 "International Comm Events Mgt"
                     // LElectronicInvoicing.AddAttribute(XMLDoc,XMLCurrNode,'Incoterm',COPYSTR(TempDocumentHeader."Shipment Method Code",1,3)) // 1 o 2
                     LElectronicInvoicing.AddAttribute(XMLDoc, XMLCurrNode, 'Incoterm', LrecSalInv2."Shipment Method Code"); //Hardcode transfer
                 END;
-                LElectronicInvoicing.AddAttribute(XMLDoc, XMLCurrNode, 'Subdivision', '0');
+                // Subdivision removido del XML: SAT ya no permite este atributo en cce20:ComercioExterior (Anexo 20/22, confirmado 2026-07-27).
                 // 2021-06-07 >>
                 LrecSalInv2.CalcFields("Amount Including VAT");
                 // 2021-06-07 <<
