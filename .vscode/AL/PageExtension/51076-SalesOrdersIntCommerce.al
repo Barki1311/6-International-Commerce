@@ -40,6 +40,14 @@ pageextension 51098 "Sales Orders Int Commerce Mx" extends "Sales Order"
 
                     END;
                 }
+                field("CFDI Exportacion Mx"; "CFDI Exportacion")
+                {
+                    Visible = true;
+                    ApplicationArea = All;
+
+                    CaptionML = ENU = 'Export Code (CFDI)', ESM = 'Código de Exportación (CFDI)';
+                    ToolTip = 'Catálogo SAT c_Exportacion (01 No aplica, 02 Definitiva, 03 Temporal, 04 Definitiva con clave de pedimento distinta a la del complemento de Comercio Exterior). Si se deja vacío, el sistema lo calcula automáticamente.';
+                }
 
             }
         }

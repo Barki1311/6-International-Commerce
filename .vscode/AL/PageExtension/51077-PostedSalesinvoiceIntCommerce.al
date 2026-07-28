@@ -56,6 +56,21 @@ pageextension 51077 "Posted Sales Invoice IntCom Mx" extends "Posted Sales Invoi
 
                 }
 
+                field("CFDI Exportacion Mx"; GCFDIExportacion)
+                {
+                    Visible = true;
+                    ApplicationArea = All;
+                    Editable = GBoolModifyRecord;
+                    CaptionML = ENU = 'Export Code (CFDI)', ESM = 'Código de Exportación (CFDI)';
+                    ToolTip = 'Catálogo SAT c_Exportacion (01 No aplica, 02 Definitiva, 03 Temporal, 04 Definitiva con clave de pedimento distinta a la del complemento de Comercio Exterior). Si se deja vacío, el sistema lo calcula automáticamente.';
+                    trigger OnValidate()
+                    begin
+                        GRecSalesInvHeader.get(Rec."No.");
+                        GRecSalesInvHeader."CFDI Exportacion" := GCFDIExportacion;
+                        GCodElectronicInvoicing.ModifyPostedInvoice(GRecSalesInvHeader);
+                    end;
+                }
+
             }
         }
     }
@@ -64,6 +79,7 @@ pageextension 51077 "Posted Sales Invoice IntCom Mx" extends "Posted Sales Invoi
         GInternationalCommerce := Rec."International Commerce";
         GUUIDOrigin := Rec."UUID de Certificado de Origen";
         GOperationCCE := Rec."CCE Tipo Operacion";
+        GCFDIExportacion := Rec."CFDI Exportacion";
         GBoolModifyRecord := Rec."Electronic Document Status" <> Rec."Electronic Document Status"::"Stamp Received";
     end;
 
@@ -71,6 +87,7 @@ pageextension 51077 "Posted Sales Invoice IntCom Mx" extends "Posted Sales Invoi
         GInternationalCommerce: Boolean;
         GUUIDOrigin: Text[36];
         GOperationCCE: Code[1];
+        GCFDIExportacion: Code[2];
         GRecSalesInvHeader: Record 112;
         GCodElectronicInvoicing: Codeunit 51005;
         GBoolModifyRecord: Boolean;

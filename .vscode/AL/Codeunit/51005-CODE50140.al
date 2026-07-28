@@ -153,7 +153,9 @@ codeunit 51005 "International Comm Events Mgt"
         C10145: codeunit 10145;
     begin
         IF not IsCredit then
-            IF TempDocumentHeader."International Commerce" THEN BEGIN
+            // 2026-07-28: Exportacion='04' omite el complemento de Comercio Exterior (Anexo 20/22) -
+            // no se declara el namespace cce20 ni se marca IsInternationalCommerce para este documento.
+            IF TempDocumentHeader."International Commerce" AND (TempDocumentHeader."CFDI Exportacion" <> '04') THEN BEGIN
                 XsiCCE := ' http://www.sat.gob.mx/ComercioExterior20 http://www.sat.gob.mx/sitio_internet/cfd/ComercioExterior20/ComercioExterior20.xsd';
                 IsInternationalCommerce := true;
             END;
@@ -263,7 +265,9 @@ codeunit 51005 "International Comm Events Mgt"
         IF not IsCredit THEN
             LrecSalInv2.RESET;
         LrecSalInv2.GET(TempDocumentHeader."No.");
-        IF LrecSalInv2."International Commerce" THEN BEGIN
+        // 2026-07-28: Exportacion='04' omite la construcción del nodo cce20:ComercioExterior (Anexo 20/22) -
+        // Leyendas Fiscales (módulo 7) es independiente y sigue funcionando normal.
+        IF LrecSalInv2."International Commerce" AND (TempDocumentHeader."CFDI Exportacion" <> '04') THEN BEGIN
             LRecCustomer.Reset;
             LRecCustomer.Get(GCustomerNo."No.");
             if LRecCustomer."CFDI 4.0" THEN

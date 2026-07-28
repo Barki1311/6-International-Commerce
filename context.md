@@ -141,3 +141,27 @@ Brahim probó en sandbox (documento FVR26-1006). Hallazgos, en orden:
 - Ambos quedaron como comentarios explicativos en el código, no eliminados silenciosamente.
 
 **Pendiente de validar:** repetir el Request Stamp en sandbox con este cambio y confirmar que el error 301 ya no aparece, y que el resto del nodo `ComercioExterior` (`ClaveDePedimento`, `CertificadoOrigen`, `Incoterm`, `TipoCambioUSD`, `TotalUSD`, `Emisor`, `Receptor`, `Mercancias`) se timbra correctamente sin ellos.
+
+**Confirmado por Brahim (2026-07-27):** timbrado exitoso tras remover `TipoOperacion`/`Subdivision`. Cierre de este punto.
+
+---
+
+## Campo `"CFDI Exportacion"` capturable en Cliente — reemplaza la inferencia automática (2026-07-28)
+
+**Motivación de negocio (discutida con el usuario, no solo técnica):** el atributo `Exportacion` del CFDI 4.0 (catálogo SAT `c_Exportacion`: `01` No aplica, `02` Definitiva, `03` Temporal, `04` Definitiva con clave de pedimento distinta a la del complemento de Comercio Exterior) se calculaba en el motor central (módulo 4) con una cascada hardcodeada basada en flags técnicos (Comercio Exterior → `02`, Leyendas Fiscales → `03`). Per Anexo 20/22 y la Miscelánea Fiscal, el código correcto depende de la **naturaleza de la operación**, no de una inferencia técnica — por eso se decidió (recomendación propia, aceptada por el usuario) agregar un campo capturable en la ficha del cliente, heredado a la factura, **siempre editable**, en vez de automatizar por completo la selección del código.
+
+**Implementación:** campo `"CFDI Exportacion"` (Code[2], Field ID `51202` en las 4 tablas para aprovechar `TRANSFERFIELDS`) agregado en:
+- Customer, Sales Header, Document Header — en el módulo 4 (`4-ALCoreBaseEInvoicing/context.md` tiene el detalle técnico completo de esta parte: herencia Customer→Sales Header, override sobre la cascada existente, y el ajuste de versión 1.0.5.28 entre módulos).
+- Sales Invoice Header — en este módulo (`51043-SalesInvoiceHeaderExt.al`), mismo ID, para no tocar el módulo 2 (Core Base Library) compartido por todo el sistema.
+
+**Caso Exportación `04`:** por diseño, este código omite el nodo `cce20:ComercioExterior` por completo (no aplica clave de pedimento en el complemento), pero **sí puede coexistir con Leyendas Fiscales** (módulo 7, independiente) — confirmado contra el criterio del usuario, sujeto a lo que finalmente indique el Anexo 22 si se ajusta. Implementado en `51005-CODE50140.al`:
+- `OnBeforeInitXML`: no declara namespace `cce20` ni marca `IsInternationalCommerce` cuando Exportación=`04`.
+- `OnAfterCreateReceipt`: no construye el nodo cuando Exportación=`04`, aunque `"International Commerce"` sea `true`.
+
+**Editable en:** ficha de Cliente (módulo 4), Sales Order/Invoice sin contabilizar, y Posted Sales Invoice (solo si no se ha timbrado) — mismo patrón ya usado para `International Commerce`/`CCE Tipo Operacion`.
+
+**Pendiente de validar en sandbox:**
+1. Capturar el código en un cliente, confirmar que se hereda a una factura nueva.
+2. Dejar el campo vacío en otro caso y confirmar que la cascada automática sigue funcionando igual que antes (compatibilidad hacia atrás).
+3. Probar el caso `04`: confirmar que el nodo `ComercioExterior` no aparece en el XML, y que Leyendas Fiscales sí aparece si el cliente las tiene configuradas.
+4. Nota conocida, no corregida: el bloque de `Exportacion` para CFDI de pagos/REP en el módulo 4 sigue fijo en `'01'` sin aplicar esta lógica — pendiente de decidir si aplica corregirlo.

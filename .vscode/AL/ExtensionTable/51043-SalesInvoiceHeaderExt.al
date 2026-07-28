@@ -23,6 +23,12 @@ tableextension 51043 "Sales Invoice Header Ext" extends "Sales Invoice Header"
             //CaptionML = 'ENU=SAT Country;ESM=Pais SAT';
             CaptionML = ENU = 'CCE Type of Operation', ESM = 'CCE Tipo Operacion';
         }
+        field(51202; "CFDI Exportacion"; Code[2])
+        {
+            CaptionML = ENU = 'Export Code (CFDI)', ESM = 'Código de Exportación (CFDI)';
+            Description = 'Catálogo c_Exportacion SAT: 01 No aplica, 02 Definitiva, 03 Temporal, 04 Definitiva con clave de pedimento distinta a la del complemento de Comercio Exterior. Mismo Field ID que en Customer/Sales Header/Document Header (módulo 4) para que TRANSFERFIELDS lo propague automáticamente.';
+            DataClassification = ToBeClassified;
+        }
         modify("Ship-to Code")
         {
             trigger OnAfterValidate()
